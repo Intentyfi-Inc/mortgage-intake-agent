@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "cross-env NODE_ENV=production node server/server.js",
-    "start:staging": "cross-env NODE_ENV=staging node server/server.js",
+    "start:staging": "concurrently \"cross-env NODE_ENV=staging node server/server.js\" \"vite --mode staging\"",
     "dev": "concurrently \"cross-env NODE_ENV=local node server/server.js\" \"vite --mode local\"",
     "dev:client": "vite --mode local",
     "dev:server": "cross-env NODE_ENV=local node server/server.js"
