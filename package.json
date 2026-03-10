@@ -4,9 +4,11 @@
   "description": "AI-powered Mortgage Intake Agent using Gemini + Intentyfi",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node server/server.js\" \"vite\"",
-    "dev:client": "vite",
-    "dev:server": "node server/server.js"
+    "start": "cross-env NODE_ENV=production node server/server.js",
+    "start:staging": "cross-env NODE_ENV=staging node server/server.js",
+    "dev": "concurrently \"cross-env NODE_ENV=local node server/server.js\" \"vite --mode local\"",
+    "dev:client": "vite --mode local",
+    "dev:server": "cross-env NODE_ENV=local node server/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -16,6 +18,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0",
     "vite": "^6.2.0"
   }
 }

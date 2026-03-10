@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleAuth } from 'google-auth-library';
 
+dotenv.config({ path: `.env.${process.env.NODE_ENV || 'local'}` });
 dotenv.config();
 
 const app = express();
