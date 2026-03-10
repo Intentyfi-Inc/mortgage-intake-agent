@@ -1,0 +1,395 @@
+Agent Description
+This is an AI agent that is built on Gemini API. The purpose of this agent is to collect data from mortgage loan applicants. As it collects data, it guides the applicant to the available loan products, different financial calculations, guidance, and so on. Finally, it will suggest the likely decision and will tell the applicant that an officer will reach out. 
+
+The agent uses Intentyfi API for certain deterministic logical inference and reasoning. Intentyfi models all mortgage related guidelines and provides guidance to the agent as to derived calculations, whether or not PMI is required, what documentation requirements are needed, etc. The agent constantly updates the state of the application in Intentyfi and acts according to what Intentyfi infers. The API specification is given later in this document.
+
+The sequence of data collection is as described below. However, due to inferences made by Intentyfi, the sequence may have loops and such. The questions asked to the consumer are adaptive. 
+
+Whether or not the consumer is interested in a fresh loan or a refinance.
+Property value, down payment
+What kind of loan… for loan products, see what is available from Itnentyfi.
+Borrower information
+Co-borrower information if one exists.
+Employment information for borrowers
+Notification of required documentation based on employment
+Questions about assets
+Documentation requirements 
+Presentation of LTV ratios and PMI related conversation
+Eligibility check with Intentyfi and notification
+Allow for further conversation.. Say if consumers want to change downpayment, gift options, or a different property.
+At the end summarize all parameters of the loan and confirm. End with “a mortgage officer will contact you” if eligible. Otherwise, sorry, given your parameters, unable to offer a loan that qualifies. 
+Also present required documents that may be collected before final approval.
+
+Overall, it should behave like a human agent with constant and consistent reasoning. 
+
+Flow Paths: 
+When PMI is required, tell the consumer that the loan will require PMI and if she is okay with it. Once that approval is taken, do not ask again. 
+When the consumer is ineligible, give the option to reduce the loan amount if applicable (such as paying off other loans such as car loans). 
+Ineligibility reasons can be fetched from Intentyfi API. 
+
+Intentyfi Data Model
+<model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maximal.co">
+    <object-type name="MortgageApplication@mti.intentyfi.co" label="Mortgage Application">
+        <attribute name="ApplicationID" label="App ID" datatype="text" custom-id-counter-name="AppIDCounter" optional="false"/>
+        <attribute name="SubmissionDate" label="Submission Date" datatype="date" initial-value="{{CurrentDate}}"/>
+        
+        <attribute name="IsEligible" label="Is eligble for chosen product" datatype="boolean"/>
+        
+        <attribute name="LoanType" label="New or Refinance" datatype="enumerated" enumtype="LoanTypeEnum@mti.intentyfi.co"/>
+        <attribute name="Urgency" label="How soon is the loan needed?" datatype="enumerated" enumtype="TimelineEnum@mti.intentyfi.co"/>
+        <attribute name="PropertyValue" label="Property Purchase Price" datatype="float"/>
+        <attribute name="DownPayment" label="Down Payment Amount" datatype="float"/>
+        <attribute name="LoanAmount" label="Loan Amount" datatype="float"/>
+        <attribute name="SelectedLoanProduct" label="Selected loan product" datatype="enumerated" enumtype="LoanProductEnum@mti.intentyfi.co"/>
+        <attribute name="MortgageRate" label="Mortgage interest rate" datatype="float"/>
+        <attribute name="MonthlyRate" label="Monthly Mortgage Interest rate" datatype="float"/>
+        <attribute name="NumberOfPayments" label="Number of payments" datatype="float"/>
+        <attribute name="LTV" label="Loan to Value Ratio" datatype="float"/>
+        <attribute name="TotalLiabilities" label="Total Liabilities" datatype="float"/>
+        <attribute name="TotalMonthlyIncome" label="Total monthly income" datatype="float"/>
+        <attribute name="PMIRequired" label="Whether private mortgage insurance is required." datatype="boolean"/>
+        <attribute name="PMIIsAgreeble" label="PMI is agreeble to the user." datatype="boolean"/>
+        <attribute name="MonthlyPMIPayment" label="Monthly PMI Payment" datatype="float"/>
+        <attribute name="MonthlyMortgagePayment" label="Monthly Mortgage" datatype="float"/>
+        <attribute name="MonthlyTI" label="Monthly Insurance and taxes" datatype="float"/>
+        
+        <attribute name="TotalMonthlyObligation" label="Total PITI + Liabilities" datatype="float"/>
+        <attribute name="DTIRatio" label="Debt-to-Income Ratio" datatype="float"/>
+
+        <attribute name="AvailableLoanProducts" label="Available loan products" datatype="multienum" enumtype="LoanProductEnum@mti.intentyfi.co"/>
+        
+        <relation name="Borrowers" label="Borrowers" inverse-object="Borrower@mti.intentyfi.co" 
+            inverse-attribute="Application" is-containment="true" min-cardinality="1"/>
+            
+        <relation name="Liabilities" label="Liabilities" inverse-object="Liability@mti.intentyfi.co" 
+            inverse-attribute="Application" is-containment="true"/>
+        <relation name="Assets" label="Financial Assets" inverse-object="Asset@mti.intentyfi.co"
+            inverse-attribute="Application" is-containment="true"/>
+        <relation name="Requirements" label="Documentation requirements" inverse-object="DocRequirement@mti.intentyfi.co"
+             inverse-attribute="Application" is-containment="true"/>
+        
+        <persistence-params table-name="mortgage_applications">
+            <index name="Idx_AppID" columns="ApplicationID" unique="true"/>
+        </persistence-params>
+    </object-type>
+
+    <object-type name="Borrower@mti.intentyfi.co" label="Borrower Details">
+        <attribute name="Application" label="Application" datatype="reference" ref-type="MortgageApplication@mti.intentyfi.co"/>
+        <attribute name="CreditReport" label="Credit Report" datatype="reference" ref-type="CreditReport@mti.intentyfi.co" is-containment="true"/>
+        <attribute name="FirstName" label="First Name" datatype="text"/>
+        <attribute name="LastName" label="Last Name" datatype="text"/>
+        <attribute name="Email" label="Email Address" datatype="text"/>
+        <attribute name="Address" label="Address" datatype="reference" ref-type="Address@mti.intentyfi.co" is-containment="true" optional="false"/>
+        <attribute name="EmploymentStatus" label="Employment Type" datatype="enumerated" enumtype="EmploymentTypeEnum@mti.intentyfi.co"/>
+        <attribute name="EmploymentInfo" label="Employment information" datatype="reference" ref-type="EmploymentInfo@mti.intentyfi.co" 
+            is-containment="true"/>
+        <attribute name="AnnualIncome" label="Annual Gross Income" datatype="double"/>
+        
+        <attribute name="DataComplete" label="Info collected for the borrower" datatype="boolean"/>
+        <persistence-params table-name="mortgage_borrowers"/>
+    </object-type>
+    
+    <object-type name="Address@mti.intentyfi.co" label="Address">
+        <attribute name="StreetAddress" label="Street Address" datatype="text"/>
+        <attribute name="StreetAddress2" label="Street Address 2" datatype="text"/>
+        <attribute name="City" label="City" datatype="text"/>
+        <attribute name="State" label="State" datatype="enumerated" enumtype="USStateEnum@mti.intentyfi.co"/>
+        <attribute name="Country" label="Country" datatype="text" initial-value="USA"/>
+        
+        <persistence-params table-name="mortgage_address"/>
+    </object-type>
+    
+    <object-type name="EmploymentInfo@mti.intentyfi.co" label="Employment Information">
+        <attribute name="EmployerName" label="Employer Name" datatype="text"/>
+        <attribute name="Duration" label="How long (in years)" datatype="integer"/>
+        <attribute name="YearlySalary" label="Yearly salary" datatype="float"/>
+        <attribute name="YearlyBonus" label="Yearly bonus" datatype="float"/>
+        <attribute name="YearlyTotal" label="Yearly total pay" datatype="float"/>
+        <persistence-params table-name="mortgage_employment_info"/>
+    </object-type>
+
+    <object-type name="Liability@mti.intentyfi.co" label="Liability">
+        <attribute name="Application" label="Application" datatype="reference" ref-type="MortgageApplication@mti.intentyfi.co"/>
+        <attribute name="CreditReport" label="Credit Report" datatype="reference" ref-type="CreditReport@mti.intentyfi.co"/>
+        <attribute name="Type" label="Liability Type" datatype="enumerated" enumtype="LiabilityTypeEnum@mti.intentyfi.co"/>
+        <attribute name="CreditorName" label="Creditor name" datatype="text"/>
+        <attribute name="MonthlyPayment" label="Monthly Payment" datatype="double"/>
+        <attribute name="CurrentBalance" label="Current Balance" datatype="double"/>
+        <attribute name="CreditLimit" label="Credit limit" datatype="double" description="Applies to liabilities like credit card."/>
+        
+        <persistence-params table-name="mortgage_liabilities"/>
+    </object-type>
+    
+    <object-type name="CreditReport@mti.intentyfi.co" label="Credit Bureau Report">
+        <attribute name="Timestamp" label="Pull Timestamp" datatype="timestamp"/>
+        <attribute name="BureauSource" label="Bureau Source" datatype="text"/>
+        
+        <attribute name="CreditScore" label="Credit Score" datatype="integer"/>
+        <relation name="Liabilities" label="Liabilities" inverse-object="Liability@mti.intentyfi.co"
+            inverse-attribute="CreditReport" is-containment="true"/>
+
+        <attribute name="Bankruptcies" label="Bankruptcies Count" datatype="integer" initial-value="0"/>
+        <attribute name="TaxLiens" label="Tax Liens Count" datatype="integer" initial-value="0"/>
+        <attribute name="Judgments" label="Judgments Count" datatype="integer" initial-value="0"/>
+        
+        <persistence-params table-name="mortgage_credit_report"/>
+    </object-type>
+
+    <object-type name="Asset@mti.intentyfi.co" label="Asset">
+        <attribute name="Application" label="Application" datatype="reference" ref-type="MortgageApplication@mti.intentyfi.co"/>
+        <attribute name="Type" label="Asset Type" datatype="enumerated" enumtype="AssetTypeEnum@mti.intentyfi.co"/>
+        <attribute name="Description" label="Asset Description" datatype="text"/>
+        <attribute name="InstitutionName" label="Bank or brokerage where assets are at." datatype="text"/>
+        <attribute name="Value" label="Market Value" datatype="double"/>
+        
+        <persistence-params table-name="mortgage_assets"/>
+    </object-type>
+    
+    <object-type name="DocRequirement@mti.intentyfi.co" label="Documentation requirements" is-existential="true">
+       <attribute name="ReqCode" label="Requirement code" datatype="enumerated" enumtype="DocReqCodeEnum@mti.intentyfi.co"/>
+       <attribute name="Borrower" label="Borrower the requirement applies to." datatype="reference"
+                ref-type="Borrower@mti.intentyfi.co" is-containment="false"/>
+        <attribute name="Application" label="Application the requirement applies to." datatype="reference"
+                ref-type="MortgageApplication@mti.intentyfi.co"/>
+        <attribute name="AssociatedEntity" label="Associated entity, for example bank statements from bank XXX" datatype="text"/>
+        <attribute name="ReqStatus" label="Requirement Status" datatype="enumerated" enumtype="DocReqStatusEnum@mti.intentyfi.co" 
+            initial-value="PENDING"/>
+        <attribute name="ConsentReceived" label="Consent received for documents" datatype="boolean" initial-value="false"/>
+        <attribute name="ConsentDate" label="Consent date" datatype="date"/>
+        <persistence-params table-name="mortgage_requirements"/>
+    </object-type>
+
+    <enum-type name="LiabilityTypeEnum@mti.intentyfi.co" label="Liability Type">
+        <enum-option name="CAR_LOAN" label="Car Payment"/>
+        <enum-option name="CREDIT_CARD" label="Credit Card"/>
+        <enum-option name="ALIMONY" label="Alimony"/>
+        <enum-option name="STUDENT_LOAN" label="Student Loan"/>
+        <enum-option name="OTHER" label="Other Loan"/>
+    </enum-type>
+
+    <enum-type name="AssetTypeEnum@mti.intentyfi.co" label="Asset Type">
+        <enum-option name="CASH" label="Cash / Savings"/>
+        <enum-option name="INVESTMENT" label="Investments (Stocks/Bonds)"/>
+        <enum-option name="REAL_ESTATE" label="Real Estate"/>
+        <enum-option name="VEHICLE" label="Personal Property/Vehicles"/>
+        <enum-option name="BUSINESS" label="Business Interests"/>
+        <enum-option name="OTHER" label="Other"/>
+    </enum-type>
+
+    <enum-type name="LoanTypeEnum@mti.intentyfi.co" label="Loan Type">
+        <enum-option name="NEW" label="New Mortgage"/>
+        <enum-option name="REFI" label="Refinancing"/> 
+    </enum-type>
+
+    <enum-type name="EmploymentTypeEnum@mti.intentyfi.co" label="Employment Type">
+        <enum-option name="W2" label="Employed (W-2)"/>
+        <enum-option name="SELF" label="Self-Employed"/>
+        <enum-option name="BUSINESS" label="Business Owner"/>
+    </enum-type>
+    
+    <enum-type name="TimeLineEnum@mti.intentyfi.co" label="Time line for the loand">
+        <enum-option name="IMMEDIATE" label="Immediately"/>
+        <enum-option name="MONTHS_3" label="Within 3 months"/>
+        <enum-option name="EXPLORING" label="Just exploring"/>
+    </enum-type>
+    
+    <enum-type name="LoanProductEnum@mti.intentyfi.co" label="Loan product enumeration">
+        <enum-option name="FIXED_CONFORMING_30YR" label="30 Year Fixed (Conforming)"/>
+        <enum-option name="FIXED_CONFORMING_15YR" label="15 Year Fixed (Conforming)"/>
+        <enum-option name="FIXED_JUMBO_30YR" label="30 Year Fixed (Jumbo)"/>
+        <enum-option name="FIXED_JUMBO_15YR" label="15 Year Fixed (Jumbo)"/>
+    </enum-type>
+    
+    <enum-type name="DocReqCodeEnum@mti.intentyfi.co" label="Doc requirement code" description="Document requirement code enumeration">
+        <enum-option name="SOFT_CREDIT_CHECK" label="Soft Credit Check"/>
+        <enum-option name="W2_TWO_YEARS" label="W2 forms for 2 years"/>
+        <enum-option name="TAXES_TWO_YEARS" label="Tax filings for 2 years"/>
+        <enum-option name="PROFIT_LOSS_STATEMENT" label="Profit loss statement"/>
+        <enum-option name="BANK_STATEMENTS" label="Bank statements"/>
+    </enum-type>
+    
+    <enum-type name="DocReqStatusEnum@mti.intentyfi.co" label="Doc Requirement status">
+        <enum-option name="PENDING" label="Pending"/>
+        <enum-option name="PROVIDED" label="Provided. Docs uploaded"/>
+        <enum-option name="VERIFIED" label="Verified."/>
+        <enum-option name="INVALID" label="Invalid. Doc requirements not met."/>
+    </enum-type>
+
+    <enum-type name="USStateEnum@mti.intentyfi.co" label="State enumeration">
+        <enum-option name="AL" label="Alabama"/>
+        <enum-option name="AK" label="Alaska"/>
+        <enum-option name="AZ" label="Arizona"/>
+        <enum-option name="AR" label="Arkansas"/>
+        <enum-option name="CA" label="California"/>
+        <enum-option name="CO" label="Colorado"/>
+        <enum-option name="CT" label="Connecticut"/>
+        <enum-option name="DE" label="Delaware"/>
+        <enum-option name="DC" label="District of Columbia"/>
+        <enum-option name="FL" label="Florida"/>
+        <enum-option name="GA" label="Georgia"/>
+        <enum-option name="HI" label="Hawaii"/>
+        <enum-option name="ID" label="Idaho"/>
+        <enum-option name="IL" label="Illinois"/>
+        <enum-option name="IN" label="Indiana"/>
+        <enum-option name="IA" label="Iowa"/>
+        <enum-option name="KS" label="Kansas"/>
+        <enum-option name="KY" label="Kentucky"/>
+        <enum-option name="LA" label="Louisiana"/>
+        <enum-option name="ME" label="Maine"/>
+        <enum-option name="MD" label="Maryland"/>
+        <enum-option name="MA" label="Massachusetts"/>
+        <enum-option name="MI" label="Michigan"/>
+        <enum-option name="MN" label="Minnesota"/>
+        <enum-option name="MS" label="Mississippi"/>
+        <enum-option name="MO" label="Missouri"/>
+        <enum-option name="MT" label="Montana"/>
+        <enum-option name="NE" label="Nebraska"/>
+        <enum-option name="NV" label="Nevada"/>
+        <enum-option name="NH" label="New Hampshire"/>
+        <enum-option name="NJ" label="New Jersey"/>
+        <enum-option name="NM" label="New Mexico"/>
+        <enum-option name="NY" label="New York"/>
+        <enum-option name="NC" label="North Carolina"/>
+        <enum-option name="ND" label="North Dakota"/>
+        <enum-option name="OH" label="Ohio"/>
+        <enum-option name="OK" label="Oklahoma"/>
+        <enum-option name="OR" label="Oregon"/>
+        <enum-option name="PA" label="Pennsylvania"/>
+        <enum-option name="RI" label="Rhode Island"/>
+        <enum-option name="SC" label="South Carolina"/>
+        <enum-option name="SD" label="South Dakota"/>
+        <enum-option name="TN" label="Tennessee"/>
+        <enum-option name="TX" label="Texas"/>
+        <enum-option name="UT" label="Utah"/>
+        <enum-option name="VT" label="Vermont"/>
+        <enum-option name="VA" label="Virginia"/>
+        <enum-option name="WA" label="Washington"/>
+        <enum-option name="WV" label="West Virginia"/>
+        <enum-option name="WI" label="Wisconsin"/>
+        <enum-option name="WY" label="Wyoming"/>
+    </enum-type>
+</model>
+
+
+Intentyfi API
+	All APIs are called with a basic authorization of user name and password. 
+	UserName: jc+mort@intentyfi.ai, Password: Intent#5
+
+	Endpoint: http://localhost:8090/max/v1
+	Project: Mortgage
+
+Initializing Scope
+POST: {{endpoint}}/scoped/new?proj={{project}}
+Body: []
+
+Response: 
+	{
+    "Scope": {
+        "ObjectID": 10000011,
+        "ModelName": "Mortgage",
+        "ModelVersion": 15
+    }
+}
+This Scope’s ObjectID is very important. This Scope ID is passed for all future APIs whenever we want to create or update objects in this scope. This can be loosely considered as a “case”. 
+
+Creating a mortgage application
+	
+	POST: {{endpoint}}/scoped/updateObjects?proj={{project}}&scope=<Scope ID>
+	Body: 
+
+[{
+    "ObjectType": "MortgageApplication@mti.intentyfi.co",
+    "LoanType": "NEW"
+}
+]
+
+	Response: This returns all the objects either created or modified. In this case, a mortgage application with its ID and other objects created by cardinality requirements specified in the data model. 
+	{
+    "ModifiedObjects": [
+        "MortgageApplication@mti.intentyfi.co:10000013",
+        "Address@mti.intentyfi.co:10000013",
+        "Borrower@mti.intentyfi.co:10000013"
+    ],
+    "SetMembersChanged": true
+}
+
+
+Fetching an object / mortgage application here
+
+	GET: {{endpoint}}/object/getObject?proj={{project}}&object=MortgageApplication@mti.intentyfi.co:10000013&includeRels=true
+
+	IncludeRels indicates if the response should include all related objects returned as nested json objects. 
+Response: 
+	{
+    "MortgageRate": 6.5,
+    "LoanType": "NEW",
+    "ObjectID": 10000013,
+    "TotalMonthlyIncome": 0,
+    "IsEligible": true,
+    "SubmissionDate": "Tue Mar 10 00:45:38 PDT 2026",
+    "Requirements": [],
+    "ObjectType": "MortgageApplication@mti.intentyfi.co",
+    "MonthlyPMIPayment": 0,
+    "TotalLiabilities": 0,
+    "Liabilities": [],
+    "Assets": [],
+    "ObjectTypeID": 10000001,
+    "MonthlyRate": 0.0054166666,
+    "Borrowers": [
+        {
+            "ObjectType": "Borrower@mti.intentyfi.co",
+            "Address": {
+                "ObjectType": "Address@mti.intentyfi.co",
+                "Country": "USA",
+                "ObjectID": 10000013,
+                "ObjectTypeID": 10000003
+            },
+            "ObjectID": 10000013,
+            "Application": 10000013,
+            "ObjectTypeID": 10000002,
+            "DataComplete": false
+        }
+    ],
+    "ApplicationID": "APP00006"
+}
+
+Here relations Requirements, Liabilities, Assets, Borrowers, etc are returned.
+
+Explain a path for a variable value
+
+GET: {{endpoint}}/scope/explainPath?proj={{project}}&scope=<scope ID> &variable=MortgageApplication@mti.intentyfi.co:10000001:IsEligible
+
+Here you are asking why IsEligible has a value it has. In our case, we check it when IsEligible false to tell the use why it is false. 
+
+Response: 
+{
+    "variable": "MortgageApplication@mti.intentyfi.co:10000001:IsEligible",
+    "value": false,
+    "asserted": false,
+    "reasons": [
+        {
+            "variable": "MortgageApplication@mti.intentyfi.co:10000001:DTIRatio",
+            "value": 0.5087497099097265,
+            "asserted": false,
+            "reasons": [
+            
+                {
+                    "description": "Calculate DTI",
+                    "active": true,
+                    "constraint": "Financials.C3",
+                    "priority": "NORMAL"
+                }
+            ]
+        },
+        {
+            "description": "DTI Must be less than 45% for eligibility.",
+            "active": true,
+            "constraint": "Eligibility.C3",
+            "priority": "NORMAL"
+        }
+    ]
+}
+
+This produces a nested tree of explanations. The reason is typically the constraint at the top and the variable values at the top. 
+
+

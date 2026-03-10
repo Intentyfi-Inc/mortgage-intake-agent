@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mortgage Intake Agent — Intentyfi</title>
+  <meta name="description" content="AI-powered mortgage loan application assistant. Get guided through your mortgage application with intelligent recommendations." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/index.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Mortgage Intake</h1>
+          <span class="brand-sub">Powered by Intentyfi</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Initializing...</span>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="app-main">
+      <!-- Sidebar: Application Progress -->
+      <aside id="progress-sidebar">
+        <h2>Application Progress</h2>
+        <div class="progress-steps" id="progress-steps">
+          <div class="step" data-step="loan-type">
+            <div class="step-indicator"><span class="step-num">1</span></div>
+            <div class="step-label">Loan Type</div>
+          </div>
+          <div class="step" data-step="property">
+            <div class="step-indicator"><span class="step-num">2</span></div>
+            <div class="step-label">Property & Down Payment</div>
+          </div>
+          <div class="step" data-step="product">
+            <div class="step-indicator"><span class="step-num">3</span></div>
+            <div class="step-label">Loan Product</div>
+          </div>
+          <div class="step" data-step="borrower">
+            <div class="step-indicator"><span class="step-num">4</span></div>
+            <div class="step-label">Borrower Info</div>
+          </div>
+          <div class="step" data-step="employment">
+            <div class="step-indicator"><span class="step-num">5</span></div>
+            <div class="step-label">Employment</div>
+          </div>
+          <div class="step" data-step="assets">
+            <div class="step-indicator"><span class="step-num">6</span></div>
+            <div class="step-label">Assets & Liabilities</div>
+          </div>
+          <div class="step" data-step="eligibility">
+            <div class="step-indicator"><span class="step-num">7</span></div>
+            <div class="step-label">Eligibility Check</div>
+          </div>
+          <div class="step" data-step="summary">
+            <div class="step-indicator"><span class="step-num">8</span></div>
+            <div class="step-label">Summary & Review</div>
+          </div>
+        </div>
+        <div class="app-id-box" id="app-id-box" style="display:none;">
+          <span class="app-id-label">Application ID</span>
+          <span class="app-id-value" id="app-id-value"></span>
+        </div>
+      </aside>
+
+      <!-- Chat Area -->
+      <section id="chat-area">
+        <div class="chat-messages" id="chat-messages">
+          <!-- Messages rendered here -->
+        </div>
+        <div class="chat-input-area" id="chat-input-area">
+          <div class="input-wrapper">
+            <textarea
+              id="chat-input"
+              placeholder="Type your response..."
+              rows="1"
+              autofocus
+            ></textarea>
+            <button id="send-btn" aria-label="Send message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+          <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "mortgage-intake-agent",
+  "version": "1.0.0",
+  "description": "AI-powered Mortgage Intake Agent using Gemini + Intentyfi",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server/server.js\" \"vite\"",
+    "dev:client": "vite",
+    "dev:server": "node server/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "google-auth-library": "^10.6.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "vite": "^6.2.0"
+  }
+}
