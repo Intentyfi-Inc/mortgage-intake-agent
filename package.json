@@ -8,7 +8,8 @@
     "start:staging": "concurrently \"cross-env NODE_ENV=staging node server/server.js\" \"vite --mode staging\"",
     "dev": "concurrently \"cross-env NODE_ENV=local node server/server.js\" \"vite --mode local\"",
     "dev:client": "vite --mode local",
-    "dev:server": "cross-env NODE_ENV=local node server/server.js"
+    "dev:server": "cross-env NODE_ENV=local node server/server.js",
+    "build": "vite build"
   },
   "dependencies": {
     "cors": "^2.8.5",
