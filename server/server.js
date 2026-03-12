@@ -201,6 +201,31 @@ app.get('/api/intentyfi/scope/explainPath', async (req, res) => {
   }
 });
 
+// DB named query (dashboard, reporting)
+app.post('/api/intentyfi/db/query', async (req, res) => {
+  try {
+    const url = `${INTENTYFI_ENDPOINT}/db/query?proj=${INTENTYFI_PROJECT}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: INTENTYFI_AUTH,
+      },
+      body: JSON.stringify(req.body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      console.warn('[Intentyfi] DB query failed:', text);
+      return res.status(response.status).json({ error: text });
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('DB query error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Reset a session
 app.post('/api/session/reset', (req, res) => {
   const { sessionId } = req.body;

@@ -26,6 +26,11 @@
           <span class="brand-sub">Powered by Intentyfi</span>
         </div>
       </div>
+      <nav class="header-nav" id="header-nav">
+        <button class="nav-tab active" data-view="app-main">Chat</button>
+        <button class="nav-tab" data-view="dashboard-view">Dashboard</button>
+      </nav>
+
       <div class="header-status">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">Initializing...</span>
@@ -101,8 +106,54 @@
         </div>
       </section>
     </main>
+
+    <!-- Dashboard View -->
+    <div id="dashboard-view" style="display:none;">
+      <div class="dashboard-toolbar">
+        <div class="dashboard-toolbar-left">
+          <h2>Applications</h2>
+          <span class="dashboard-count" id="dashboard-count"></span>
+        </div>
+        <div class="dashboard-toolbar-center">
+          <button class="dashboard-view-btn active" id="dashboard-view-history">History</button>
+          <button class="dashboard-view-btn" id="dashboard-view-analytics">Analytics</button>
+        </div>
+        <button class="dashboard-refresh-btn" id="dashboard-refresh">Refresh</button>
+      </div>
+      <div id="dashboard-table-container">
+        <div class="dashboard-table-wrap">
+        <table class="dashboard-table" id="dashboard-table">
+          <thead>
+            <tr>
+              <th>App ID</th>
+              <th>Loan Type</th>
+              <th>Product</th>
+              <th class="th-right">Property Value</th>
+              <th class="th-right">Down Payment</th>
+              <th class="th-right">LTV</th>
+              <th class="th-right">DTI</th>
+              <th>Eligible</th>
+              <th class="th-right">PMI</th>
+              <th>Urgency</th>
+              <th class="th-right">Monthly PI</th>
+              <th>Primary Borrower</th>
+              <th>State</th>
+              <th>Date Submitted</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-tbody">
+            <tr><td colspan="15" class="dashboard-state-cell">Click Refresh to load applications.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+      <div id="dashboard-analytics" style="display:none;" class="dashboard-analytics-container"></div>
+    </div>
+
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -4,9 +4,11 @@
 
 import { AgentOrchestrator } from './agent/orchestrator.js';
 import { ChatUI } from './components/chat.js';
+import { DashboardUI } from './components/dashboard.js';
 
 const ui = new ChatUI();
 const agent = new AgentOrchestrator();
+const dashboard = new DashboardUI();
 
 // Wire up state/status callbacks
 agent.onStatusChange = (status, label) => ui.setStatus(status, label);
@@ -67,3 +69,31 @@ async function init() {
 }
 
 init();
+
+// ─── Nav tab switching ────────────────────────────────────────────────────────
+
+const views = {
+  'app-main': document.getElementById('app-main'),
+  'dashboard-view': document.getElementById('dashboard-view'),
+};
+
+document.getElementById('header-nav').addEventListener('click', async (e) => {
+  const tab = e.target.closest('.nav-tab');
+  if (!tab) return;
+
+  const targetView = tab.dataset.view;
+
+  // Update tab active states
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+
+  // Show/hide views
+  Object.entries(views).forEach(([id, el]) => {
+    if (el) el.style.display = id === targetView ? '' : 'none';
+  });
+
+  // Lazy-load dashboard data on first open
+  if (targetView === 'dashboard-view') {
+    await dashboard.loadOnce();
+  }
+});

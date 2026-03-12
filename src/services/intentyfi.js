@@ -31,3 +31,21 @@ export async function explainPath(scopeId, variable) {
   if (!res.ok) throw new Error(`Failed to explain path: ${res.status}`);
   return res.json();
 }
+
+export async function fetchAllMortgageApplications() {
+  try {
+    const res = await fetch('/api/intentyfi/db/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 'query-name': 'getAllMortgageApplications' }),
+    });
+    if (!res.ok) {
+      console.warn('[Intentyfi] Dashboard fetch failed:', await res.text());
+      return [];
+    }
+    return res.json();
+  } catch (e) {
+    console.error('Dashboard fetch error:', e);
+    return [];
+  }
+}
