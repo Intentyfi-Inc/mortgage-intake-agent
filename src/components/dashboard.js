@@ -2,7 +2,7 @@
  * Dashboard UI — renders a table of all mortgage applications.
  */
 
-import { fetchAllMortgageApplications, explainPath } from '../services/intentyfi.js';
+import { fetchAllMortgageApplications, explainPath, getObject } from '../services/intentyfi.js';
 
 const PRODUCT_LABELS = {
   FIXED_CONFORMING_30YR: '30-Year Fixed (Conforming)',
@@ -12,7 +12,7 @@ const PRODUCT_LABELS = {
 };
 
 // Number of data columns (excluding the Actions column)
-const COL_COUNT = 14;
+const COL_COUNT = 8;
 
 function formatCurrency(val) {
   if (val === null || val === undefined) return '—';
@@ -35,6 +35,21 @@ function formatDate(val) {
   return d.toLocaleDateString('en-US', { dateStyle: 'medium' });
 }
 
+function formatDateTime(val) {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return val;
+  return d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatRate(val) {
+  if (val === null || val === undefined || val === '') return '—';
+  const numeric = Number(val);
+  if (Number.isNaN(numeric)) return String(val);
+  const asPercent = numeric <= 1 ? numeric * 100 : numeric;
+  return `${asPercent.toFixed(2)}%`;
+}
+
 function formatUrgency(val) {
   if (!val) return '—';
   const map = {
@@ -49,6 +64,47 @@ function shouldHideExplanationReason(reason) {
   if (!reason || typeof reason !== 'object') return false;
   const variable = reason.variable || reason.Variable || '';
   return variable.startsWith('Address@mti.intentyfi.co:') && variable.endsWith(':State');
+}
+
+function escapeHtml(value) {
+  const str = String(value ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function toArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function firstDefined(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+  }
+  return null;
+}
+
+function statusClass(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'provided') return 'doc-status-provided';
+  if (normalized === 'verified') return 'doc-status-verified';
+  if (normalized === 'invalid') return 'doc-status-invalid';
+  return 'doc-status-pending';
+}
+
+function renderKeyValueGrid(rows) {
+  if (!rows || rows.length === 0) return '';
+  return rows.map(row => `
+    <div class="data-row">
+      <div class="data-label">${escapeHtml(row.label)}</div>
+      <div class="data-value">${escapeHtml(row.value ?? '—')}</div>
+    </div>
+  `).join('');
 }
 
 function renderExplanation(data) {
@@ -102,6 +158,10 @@ export class DashboardUI {
     this.analyticsContainer = document.getElementById('dashboard-analytics');
     this.historyBtn = document.getElementById('dashboard-view-history');
     this.analyticsBtn = document.getElementById('dashboard-view-analytics');
+    this.reviewOverlay = document.getElementById('case-review-overlay');
+    this.reviewContent = document.getElementById('case-review-content');
+    this.reviewTitle = document.getElementById('case-review-title');
+    this.reviewCloseBtn = document.getElementById('case-review-close');
     this._currentView = 'history';  // Track current view
     this._loaded = false;
     this._apps = [];
@@ -120,8 +180,25 @@ export class DashboardUI {
       this.analyticsBtn.addEventListener('click', () => this._switchView('analytics'));
     }
 
+    if (this.reviewCloseBtn) {
+      this.reviewCloseBtn.addEventListener('click', () => this._closeCaseReview());
+    }
+
+    if (this.reviewOverlay) {
+      this.reviewOverlay.addEventListener('click', (e) => {
+        if (e.target === this.reviewOverlay) this._closeCaseReview();
+      });
+    }
+
     // Delegate explain button clicks via tbody
     this.tbody.addEventListener('click', async (e) => {
+      const reviewBtn = e.target.closest('.review-btn');
+      if (reviewBtn) {
+        const objectId = reviewBtn.dataset.objectId;
+        await this._openCaseReview(objectId);
+        return;
+      }
+
       const btn = e.target.closest('.explain-btn');
       if (!btn) return;
       const objectId = btn.dataset.objectId;
@@ -166,6 +243,265 @@ export class DashboardUI {
     if (this.analyticsContainer) {
       this.analyticsContainer.style.display = isHistory ? 'none' : '';
     }
+  }
+
+  async _openCaseReview(objectId) {
+    if (!this.reviewOverlay || !this.reviewContent) return;
+
+    this.reviewOverlay.style.display = 'flex';
+    this.reviewContent.innerHTML = '<div class="review-loading">Loading case review...</div>';
+    if (this.reviewTitle) this.reviewTitle.textContent = `Application ${objectId}`;
+
+    try {
+      const appRef = `MortgageApplication@mti.intentyfi.co:${objectId}`;
+      const application = await getObject(appRef, true);
+      this._renderCaseReview(application);
+      const appId = application.ApplicationID || application.AppID || objectId;
+      if (this.reviewTitle) this.reviewTitle.textContent = `Case Review: ${appId}`;
+    } catch (err) {
+      console.error('[Dashboard] Case review load error:', err);
+      this.reviewContent.innerHTML = `
+        <div class="review-error">Unable to load case details: ${escapeHtml(err.message || 'Unknown error')}</div>
+      `;
+    }
+  }
+
+  _closeCaseReview() {
+    if (!this.reviewOverlay || !this.reviewContent) return;
+    this.reviewOverlay.style.display = 'none';
+    this.reviewContent.innerHTML = '';
+  }
+
+  _renderCaseReview(application) {
+    if (!this.reviewContent) return;
+
+    const borrowerObjects = this._extractBorrowers(application);
+    const primaryBorrower = borrowerObjects[0] || {};
+    const coBorrowers = borrowerObjects.slice(1);
+
+    const loanAmount = firstDefined(application, ['LoanAmount'])
+      ?? ((application.PropertyValue || 0) - (application.DownPayment || 0));
+
+    const credit = firstDefined(application, ['CreditReport', 'Credit'])
+      || firstDefined(primaryBorrower, ['CreditReport', 'Credit'])
+      || {};
+
+    const requirements = this._extractRequirements(application, borrowerObjects);
+    const appId = firstDefined(application, ['ApplicationID', 'AppID']) || '?';
+
+    // Build simple data sections
+    const summaryData = [
+      { label: 'Application ID', value: appId },
+      { label: 'Submission Date', value: formatDateTime(firstDefined(application, ['DateSubmitted', 'SubmissionDate'])) },
+      { label: 'Loan Type', value: firstDefined(application, ['LoanType']) || '—' },
+      { label: 'Loan Product', value: PRODUCT_LABELS[firstDefined(application, ['SelectedLoanProduct', 'SelectedProduct'])] || firstDefined(application, ['SelectedLoanProduct', 'SelectedProduct']) || '—' },
+      { label: 'Property Value', value: formatCurrency(firstDefined(application, ['PropertyValue'])) },
+      { label: 'Loan Amount', value: formatCurrency(loanAmount) },
+      { label: 'Down Payment', value: formatCurrency(firstDefined(application, ['DownPayment'])) },
+      { label: 'Mortgage Rate', value: formatRate(firstDefined(application, ['InterestRate', 'MortgageRate'])) },
+    ];
+
+    const creditData = [
+      { label: 'Credit Score', value: firstDefined(credit, ['CreditScore', 'Score']) || '—' },
+      { label: 'Bureau Source', value: firstDefined(credit, ['BureauSource', 'Bureau']) || '—' },
+      { label: 'Bankruptcies', value: firstDefined(credit, ['Bankruptcies']) ?? '—' },
+      { label: 'Tax Liens', value: firstDefined(credit, ['TaxLiens']) ?? '—' },
+      { label: 'Judgments', value: firstDefined(credit, ['Judgments']) ?? '—' },
+    ];
+
+    const financialData = [
+      { label: 'Total Monthly Income', value: formatCurrency(firstDefined(application, ['TotalMonthlyIncome'])) },
+      { label: 'Total Liabilities', value: formatCurrency(firstDefined(application, ['TotalLiabilities'])) },
+      { label: 'Monthly Mortgage Payment', value: formatCurrency(firstDefined(application, ['MonthlyPI', 'MonthlyMortgagePayment'])) },
+      { label: 'Monthly PMI Payment', value: formatCurrency(firstDefined(application, ['PMIAmount', 'MonthlyPMI'])) },
+      { label: 'Monthly Insurance & Taxes', value: formatCurrency(firstDefined(application, ['MonthlyTI'])) },
+      { label: 'Total Monthly Obligation', value: formatCurrency(firstDefined(application, ['TotalMonthlyObligation'])) },
+      { label: 'Debt-to-Income Ratio', value: firstDefined(application, ['DTIRatio']) != null ? formatPercent(firstDefined(application, ['DTIRatio'])) : '—' },
+      { label: 'Loan-to-Value Ratio', value: firstDefined(application, ['LTVRatio']) != null ? formatPercent(firstDefined(application, ['LTVRatio'])) : '—' },
+    ];
+
+    const borrowersHtml = this._renderBorrowerSection(primaryBorrower, coBorrowers);
+    const requirementsHtml = this._renderRequirementsTable(requirements);
+
+    this.reviewContent.innerHTML = `
+      <section class="review-section">
+        <h3>Application Summary</h3>
+        ${renderKeyValueGrid(summaryData)}
+      </section>
+
+      <section class="review-section">
+        <h3>Borrower Information</h3>
+        ${borrowersHtml}
+      </section>
+
+      <section class="review-section">
+        <h3>Credit Report</h3>
+        ${renderKeyValueGrid(creditData)}
+      </section>
+
+      <section class="review-section">
+        <h3>Financial Summary</h3>
+        ${renderKeyValueGrid(financialData)}
+      </section>
+
+      <section class="review-section">
+        <h3>Documentation Requirements</h3>
+        ${requirementsHtml}
+      </section>
+
+      <section class="review-section comments-section">
+        <h3>Review Notes</h3>
+        <textarea id="review-comments" class="review-comments-input" placeholder="Add comments for manual review..."></textarea>
+        <button id="save-comments-btn" class="save-comments-btn">Save Comments</button>
+      </section>
+    `;
+
+    // Wire up comment save button
+    const saveBtn = this.reviewContent.querySelector('#save-comments-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const textarea = this.reviewContent.querySelector('#review-comments');
+        const comments = textarea?.value || '';
+        console.log(`Saving comments for ${appId}:`, comments);
+        // TODO: persist to database
+      });
+    }
+  }
+
+  _extractBorrowers(application) {
+    const borrowers = [];
+    const candidates = [
+      ...toArray(firstDefined(application, ['Borrower', 'PrimaryBorrower'])),
+      ...toArray(firstDefined(application, ['CoBorrowers', 'Coborrowers'])),
+      ...toArray(firstDefined(application, ['Borrowers'])),
+    ];
+
+    for (const item of candidates) {
+      if (item && typeof item === 'object') borrowers.push(item);
+    }
+
+    // Remove duplicates by ObjectID when available.
+    const byId = new Map();
+    for (const borrower of borrowers) {
+      const key = borrower.ObjectID || `${borrower.FirstName || ''}_${borrower.LastName || ''}_${Math.random()}`;
+      if (!byId.has(key)) byId.set(key, borrower);
+    }
+
+    return [...byId.values()];
+  }
+
+  _renderBorrowerSection(primaryBorrower, coBorrowers) {
+    const renderOne = (borrower, title) => {
+      const address = firstDefined(borrower, ['Address']) || {};
+      const employment = firstDefined(borrower, ['EmploymentInfo', 'Employment']) || {};
+
+      const data = [
+        { label: 'First Name', value: firstDefined(borrower, ['FirstName']) || '—' },
+        { label: 'Last Name', value: firstDefined(borrower, ['LastName']) || '—' },
+        { label: 'Email', value: firstDefined(borrower, ['Email']) || '—' },
+        {
+          label: 'Address',
+          value: [
+            firstDefined(address, ['StreetAddress']) || firstDefined(borrower, ['StreetAddress']) || '',
+            firstDefined(address, ['City']) || firstDefined(borrower, ['City']) || '',
+            firstDefined(address, ['State']) || firstDefined(borrower, ['State']) || '',
+            firstDefined(address, ['Country']) || firstDefined(borrower, ['Country']) || '',
+          ].filter(Boolean).join(', ') || '—',
+        },
+        { label: 'Employment Status', value: firstDefined(borrower, ['EmploymentStatus']) || '—' },
+        { label: 'Annual Income', value: formatCurrency(firstDefined(borrower, ['AnnualIncome'])) },
+        { label: 'Employer', value: firstDefined(employment, ['EmployerName']) || '—' },
+        { label: 'Duration', value: firstDefined(employment, ['Duration']) != null ? `${firstDefined(employment, ['Duration'])} years` : '—' },
+        { label: 'Salary', value: formatCurrency(firstDefined(employment, ['YearlySalary', 'Salary'])) },
+        { label: 'Bonus', value: formatCurrency(firstDefined(employment, ['YearlyBonus', 'Bonus'])) },
+      ];
+
+      return `
+        <div class="borrower-subsection">
+          <h4>${escapeHtml(title)}</h4>
+          ${renderKeyValueGrid(data)}
+        </div>
+      `;
+    };
+
+    if (coBorrowers.length === 0) {
+      return renderOne(primaryBorrower, 'Primary Borrower') + 
+        '<p class="muted-text">No co-borrowers associated with this application.</p>';
+    }
+
+    return renderOne(primaryBorrower, 'Primary Borrower') +
+      coBorrowers.map((borrower, idx) => renderOne(borrower, `Co-Borrower ${idx + 1}`)).join('');
+  }
+
+  _extractRequirements(application, borrowers) {
+    const raw = firstDefined(application, [
+      'DocumentationRequirements',
+      'DocumentRequirements',
+      'Requirements',
+      'RequiredDocuments',
+    ]);
+
+    const reqs = toArray(raw).filter(item => item && typeof item === 'object');
+    if (reqs.length > 0) return reqs;
+
+    // Fallback demo rows if the object doesn't include requirements yet.
+    const borrowerName = borrowers[0]
+      ? `${borrowers[0].FirstName || ''} ${borrowers[0].LastName || ''}`.trim() || 'Primary Borrower'
+      : 'Primary Borrower';
+
+    return [
+      {
+        RequirementCode: 'DOC_W2_2Y',
+        Borrower: borrowerName,
+        AssociatedEntity: 'Income Verification',
+        RequirementStatus: 'Pending',
+        ConsentReceived: false,
+        ConsentDate: null,
+        DocumentLink: '#',
+      },
+      {
+        RequirementCode: 'DOC_BANK_STMT',
+        Borrower: borrowerName,
+        AssociatedEntity: 'Asset Verification',
+        RequirementStatus: 'Provided',
+        ConsentReceived: true,
+        ConsentDate: firstDefined(application, ['DateSubmitted']) || null,
+        DocumentLink: '#',
+      },
+    ];
+  }
+
+  _renderRequirementsTable(requirements) {
+    if (!requirements || requirements.length === 0) {
+      return '<p class="muted-text">No documentation requirements found.</p>';
+    }
+
+    return `
+      <table class="requirements-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Entity</th>
+            <th>Status</th>
+            <th>Consent</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${requirements.map(req => {
+            const status = firstDefined(req, ['RequirementStatus', 'Status']) || 'Pending';
+            const link = firstDefined(req, ['DocumentLink', 'DocumentationLink', 'Link']) || '#';
+            return `
+              <tr>
+                <td>${escapeHtml(firstDefined(req, ['RequirementCode', 'Code']) || '—')}</td>
+                <td>${escapeHtml(firstDefined(req, ['AssociatedEntity', 'Entity']) || '—')}</td>
+                <td><span class="status-badge ${statusClass(status)}">${escapeHtml(status)}</span></td>
+                <td>${firstDefined(req, ['ConsentReceived']) ? 'Yes' : 'No'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
   }
 
   async _handleExplain(objectId, scopeId) {
@@ -220,7 +556,7 @@ export class DashboardUI {
 
     const isError = data && data.error;
     expandRow.innerHTML = `
-      <td colspan="${COL_COUNT + 1}" class="explain-cell">
+      <td colspan="${COL_COUNT}" class="explain-cell">
         ${isError
           ? `<div class="explain-error">⚠ ${data.error}</div>`
           : `<div class="explain-panel">
@@ -239,7 +575,7 @@ export class DashboardUI {
     if (on) {
       this.tbody.innerHTML = `
         <tr>
-          <td colspan="${COL_COUNT + 1}" class="dashboard-state-cell">
+          <td colspan="${COL_COUNT}" class="dashboard-state-cell">
             <div class="dashboard-spinner"></div>
             Loading applications…
           </td>
@@ -251,7 +587,7 @@ export class DashboardUI {
     if (!apps || apps.length === 0) {
       this.tbody.innerHTML = `
         <tr>
-          <td colspan="${COL_COUNT + 1}" class="dashboard-state-cell dashboard-empty">
+          <td colspan="${COL_COUNT}" class="dashboard-state-cell dashboard-empty">
             No applications found.
           </td>
         </tr>`;
@@ -268,35 +604,25 @@ export class DashboardUI {
       const borrowerName = app.BorrowerName && typeof app.BorrowerName !== 'number'
         ? app.BorrowerName
         : '—';
-      const eligibleBadge = app.IsEligible === true
-        ? '<span class="badge badge-green">Eligible</span>'
-        : app.IsEligible === false
-          ? '<span class="badge badge-red">Not Eligible</span>'
-          : '<span class="badge badge-muted">Unknown</span>';
-      const pmiAmount = app.PMIAmount != null ? formatCurrency(app.PMIAmount) : '—';
 
       return `
         <tr class="dashboard-row" data-object-id="${app.ObjectID}">
           <td class="td-appid">${app.AppID || '—'}</td>
           <td>${app.LoanType || '—'}</td>
           <td>${product}</td>
-          <td class="td-right">${formatCurrency(app.PropertyValue)}</td>
-          <td class="td-right">${formatCurrency(app.DownPayment)}</td>
-          <td class="td-right">${formatPercent(app.LTVRatio)}</td>
-          <td class="td-right">${app.DTIRatio != null ? formatPercent(app.DTIRatio) : '—'}</td>
-          <td>${eligibleBadge}</td>
-          <td class="td-right">${pmiAmount}</td>
           <td>${formatUrgency(app.Urgency)}</td>
-          <td class="td-right">${app.MonthlyPI != null ? formatCurrency(app.MonthlyPI) : '—'}</td>
           <td>${borrowerName}</td>
-          <td>${app.PropertyState || '—'}</td>
           <td class="td-date">${formatDate(app.DateSubmitted)}</td>
-          <td>
+          <td class="td-center">
+            <button class="review-btn" data-object-id="${app.ObjectID}" title="Review full application details">Review</button>
+          </td>
+          <td class="td-center">
             <button
               class="explain-btn"
               data-object-id="${app.ObjectID}"
               data-scope-id="${app.ScopeID}"
-              ${app.IsEligible !== false ? 'style="visibility:hidden"' : ''}
+              ${app.IsEligible !== false ? 'style="display:none"' : ''}
+              title="View eligibility explanation"
             >Explain</button>
           </td>
         </tr>`;
@@ -304,11 +630,15 @@ export class DashboardUI {
   }
 
   _renderAnalytics(apps) {
-    if (!this.analyticsContainer || !apps || apps.length === 0) return;
+    if (!this.analyticsContainer) return;
+
+    if (!apps || apps.length === 0) {
+      this.analyticsContainer.innerHTML = '<div class="review-muted">No analytics available. Load applications first.</div>';
+      return;
+    }
 
     const analytics = computeAnalytics(apps);
     const { eligible, ineligible, unknown } = analytics.eligibility;
-    const total = eligible + ineligible + unknown;
 
     this.analyticsContainer.innerHTML = `
       <div class="analytics-section">

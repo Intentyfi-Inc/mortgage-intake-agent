@@ -120,7 +120,7 @@
         </div>
         <button class="dashboard-refresh-btn" id="dashboard-refresh">Refresh</button>
       </div>
-      <div id="dashboard-table-container">
+      <div id="dashboard-table-container" class="dashboard-table-container">
         <div class="dashboard-table-wrap">
         <table class="dashboard-table" id="dashboard-table">
           <thead>
@@ -128,27 +128,30 @@
               <th>App ID</th>
               <th>Loan Type</th>
               <th>Product</th>
-              <th class="th-right">Property Value</th>
-              <th class="th-right">Down Payment</th>
-              <th class="th-right">LTV</th>
-              <th class="th-right">DTI</th>
-              <th>Eligible</th>
-              <th class="th-right">PMI</th>
               <th>Urgency</th>
-              <th class="th-right">Monthly PI</th>
               <th>Primary Borrower</th>
-              <th>State</th>
               <th>Date Submitted</th>
-              <th></th>
+              <th>Review</th>
+              <th>Explain</th>
             </tr>
           </thead>
           <tbody id="dashboard-tbody">
-            <tr><td colspan="15" class="dashboard-state-cell">Click Refresh to load applications.</td></tr>
+            <tr><td colspan="8" class="dashboard-state-cell">Click Refresh to load applications.</td></tr>
           </tbody>
         </table>
       </div>
       </div>
       <div id="dashboard-analytics" style="display:none;" class="dashboard-analytics-container"></div>
+
+      <div id="case-review-overlay" class="case-review-overlay" style="display:none;">
+        <div class="case-review-panel">
+          <div class="review-header">
+            <h2 id="case-review-title">Application Review</h2>
+            <button id="case-review-close" class="review-close-btn" aria-label="Close review">✕</button>
+          </div>
+          <div id="case-review-content" class="review-content"></div>
+        </div>
+      </div>
     </div>
 
   </div>
