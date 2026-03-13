@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { GoogleAuth } from 'google-auth-library';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import { mkdir } from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -206,6 +208,46 @@ app.post('/api/session/reset', (req, res) => {
   const { sessionId } = req.body;
   sessions.delete(sessionId);
   res.json({ ok: true });
+});
+
+// ─── Document Upload ─────────────────────────────────────────────────────────
+app.post('/api/upload-document', async (req, res) => {
+  try {
+    const { filename, filesize, data } = req.body;
+
+    if (!filename || !data) {
+      return res.status(400).json({ error: 'Missing filename or file data' });
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, '../uploads');
+    await mkdir(uploadsDir, { recursive: true });
+
+    // Generate a unique filename with timestamp
+    const timestamp = Date.now();
+    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uploadPath = path.join(uploadsDir, `${timestamp}_${safeFilename}`);
+
+    // Decode base64 and write to file
+    const buffer = Buffer.from(data, 'base64');
+    await new Promise((resolve, reject) => {
+      fs.writeFile(uploadPath, buffer, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({
+      ok: true,
+      message: 'Document uploaded successfully',
+      filename: safeFilename,
+      uploadedAt: new Date().toISOString(),
+      filesize: filesize,
+    });
+  } catch (err) {
+    console.error('Document upload error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Frontend Serving (Production) ───────────────────────────────────────────

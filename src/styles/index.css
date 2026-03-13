@@ -581,6 +581,44 @@ body {
   color: var(--text-muted);
 }
 
+#upload-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-gold-dim);
+  color: var(--accent-gold);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+#upload-btn:hover {
+  background: var(--accent-gold);
+  color: var(--bg-primary);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+#upload-btn:active {
+  transform: scale(0.95);
+}
+
+#upload-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#upload-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 #send-btn {
   width: 40px;
   height: 40px;
