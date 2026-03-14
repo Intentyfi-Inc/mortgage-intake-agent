@@ -47,9 +47,13 @@ document.getElementById('pdf-upload-input').addEventListener('change', async (e)
   const file = e.target.files?.[0];
   if (!file) return;
 
-  // Validate file is PDF
-  if (file.type !== 'application/pdf') {
-    alert('Please upload a PDF file');
+  // Validate file is PDF or PNG (type can be empty on some browsers, so extension is also checked)
+  const allowedMimeTypes = ['application/pdf', 'image/png'];
+  const lowerName = file.name.toLowerCase();
+  const hasAllowedExtension = lowerName.endsWith('.pdf') || lowerName.endsWith('.png');
+  if (!allowedMimeTypes.includes(file.type) && !hasAllowedExtension) {
+    alert('Please upload a PDF or PNG file');
+    e.target.value = '';
     return;
   }
 
@@ -67,7 +71,7 @@ document.getElementById('pdf-upload-input').addEventListener('change', async (e)
     
     reader.onload = async () => {
       try {
-        const base64Data = reader.result.split(',')[1]; // Remove data:application/pdf;base64, prefix
+        const base64Data = reader.result.split(',')[1]; // Remove data:*/*;base64, prefix
         
         // Upload to server
         const response = await fetch('/api/upload-document', {
@@ -93,7 +97,7 @@ document.getElementById('pdf-upload-input').addEventListener('change', async (e)
       } catch (err) {
         console.error('Upload error:', err);
         ui.removeTypingIndicator();
-        ui.addMessage('assistant', `I encountered an error uploading the PDF: ${err.message}. Please try again.`);
+        ui.addMessage('assistant', `I encountered an error uploading the document: ${err.message}. Please try again.`);
       } finally {
         ui.setInputEnabled(true);
       }
@@ -101,7 +105,7 @@ document.getElementById('pdf-upload-input').addEventListener('change', async (e)
     
     reader.onerror = () => {
       ui.removeTypingIndicator();
-      ui.addMessage('assistant', 'Error reading the PDF file. Please try again.');
+      ui.addMessage('assistant', 'Error reading the file. Please try again.');
       ui.setInputEnabled(true);
     };
     

@@ -131,6 +131,8 @@ export class AgentOrchestrator {
         return await this._addLiability(args);
       case 'add_asset':
         return await this._addAsset(args);
+      case 'updateDocRequirement':
+        return await this._updateDocRequirement(args);
       case 'check_eligibility':
         return await this._checkEligibility();
       case 'explain_ineligibility':
@@ -346,6 +348,82 @@ export class AgentOrchestrator {
     return result;
   }
 
+  async _updateDocRequirement({ reqCode, status = 'PROVIDED' }) {
+    if (!this.state.applicationRef || !this.state.scopeId || !this.state.applicationObjectId) {
+      return { error: 'No application initialized.' };
+    }
+
+    if (!reqCode) {
+      return { error: 'Missing reqCode.' };
+    }
+
+    const appData = await intentyfi.getObject(this.state.applicationRef, true);
+    const requirements = Array.isArray(appData.Requirements) ? appData.Requirements : [];
+
+    const resolvedRequirements = await Promise.all(
+      requirements.map(async (req) => {
+        if (typeof req === 'string') {
+          try {
+            return await intentyfi.getObject(req, false);
+          } catch (err) {
+            console.warn('[DocRequirement] Failed to fetch requirement object:', req, err);
+            return null;
+          }
+        }
+        return req;
+      })
+    );
+
+    const matchingRequirements = resolvedRequirements.filter((req) => {
+      if (!req) return false;
+      return this._normalizeEnumValue(req.ReqCode) === reqCode;
+    });
+
+    let updatedCount = 0;
+    let created = false;
+
+    if (matchingRequirements.length > 0) {
+      const updates = matchingRequirements
+        .map((req) => {
+          const objectId = this._extractObjectId(req);
+          if (!objectId) return null;
+          return {
+            ObjectType: 'DocRequirement@mti.intentyfi.co',
+            ObjectID: objectId,
+            ReqStatus: status,
+          };
+        })
+        .filter(Boolean);
+
+      if (updates.length > 0) {
+        await intentyfi.updateObjects(this.state.scopeId, updates);
+        updatedCount = updates.length;
+      }
+    }
+
+    // If no matching requirement exists yet, create one and mark it as provided.
+    if (updatedCount === 0) {
+      await intentyfi.updateObjects(this.state.scopeId, [{
+        ObjectType: 'DocRequirement@mti.intentyfi.co',
+        Application: this.state.applicationObjectId,
+        ReqCode: reqCode,
+        ReqStatus: status,
+      }]);
+      created = true;
+      updatedCount = 1;
+    }
+
+    const refreshedApp = await intentyfi.getObject(this.state.applicationRef, true);
+
+    return {
+      reqCode,
+      status,
+      updatedCount,
+      created,
+      requirements: refreshedApp.Requirements || [],
+    };
+  }
+
   async _checkEligibility() {
     if (!this.state.applicationRef) {
       return { error: 'No application to check.' };
@@ -403,6 +481,33 @@ export class AgentOrchestrator {
     if (newIdx > currentIdx) {
       this.state.phase = phase;
     }
+  }
+
+  _normalizeEnumValue(value) {
+    if (!value) return value;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      return value.Name || value.Value || value.Code || value.EnumValue || value.ObjectID || null;
+    }
+    return null;
+  }
+
+  _extractObjectId(objOrRef) {
+    if (!objOrRef) return null;
+
+    if (typeof objOrRef === 'object' && objOrRef.ObjectID) {
+      return objOrRef.ObjectID;
+    }
+
+    if (typeof objOrRef === 'string') {
+      const parts = objOrRef.split(':');
+      if (parts.length >= 2) {
+        const id = Number(parts[1]);
+        return Number.isFinite(id) ? id : null;
+      }
+    }
+
+    return null;
   }
 
   _setStatus(status, label) {

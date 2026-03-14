@@ -136,6 +136,26 @@ export const toolDeclarations = [
     },
   },
   {
+    name: 'updateDocRequirement',
+    description: 'Mark a document requirement as provided after the applicant uploads a matching file (for example W-2, tax return, bank statement, or P&L).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        reqCode: {
+          type: 'STRING',
+          description: 'The requirement code to update.',
+          enum: ['W2_TWO_YEARS', 'TAXES_TWO_YEARS', 'PROFIT_LOSS_STATEMENT', 'BANK_STATEMENTS', 'SOFT_CREDIT_CHECK'],
+        },
+        status: {
+          type: 'STRING',
+          description: 'New requirement status. Use PROVIDED when a matching document is uploaded.',
+          enum: ['PENDING', 'PROVIDED', 'VERIFIED', 'INVALID'],
+        },
+      },
+      required: ['reqCode'],
+    },
+  },
+  {
     name: 'check_eligibility',
     description: 'Fetch the current mortgage application from Intentyfi to check eligibility, LTV, DTI, PMI status, available loan products, and all computed values. Call this after setting key financial parameters.',
     parameters: {
