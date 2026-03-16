@@ -26,6 +26,7 @@ const {
   INTENTYFI_PROJECT,
   INTENTYFI_USER,
   INTENTYFI_PASS,
+  CREDIT_CHECK_API = 'http://localhost:8000',
   PORT = 3001,
 } = process.env;
 
@@ -246,6 +247,47 @@ app.post('/api/upload-document', async (req, res) => {
     });
   } catch (err) {
     console.error('Document upload error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Soft Credit Check (proxied to Python FastAPI) ──────────────────────────
+app.post('/api/credit/soft-credit-check', async (req, res) => {
+  try {
+    const { full_name, date_of_birth, ssn, current_address } = req.body;
+
+    if (!full_name || !date_of_birth || !ssn || !current_address) {
+      return res.status(400).json({
+        error: 'Missing required fields: full_name, date_of_birth, ssn, current_address',
+      });
+    }
+
+    // Forward request to Python FastAPI backend
+    const response = await fetch(`${CREDIT_CHECK_API}/soft-credit-check`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        full_name,
+        date_of_birth,
+        ssn,
+        current_address,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[Credit Check] API error:', error);
+      return res.status(response.status).json({
+        error: `Soft credit check failed: ${error}`,
+      });
+    }
+
+    const result = await response.json();
+    res.json(result);
+  } catch (err) {
+    console.error('Soft credit check proxy error:', err);
     res.status(500).json({ error: err.message });
   }
 });

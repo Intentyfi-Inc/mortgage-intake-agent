@@ -44,6 +44,13 @@ Follow this general sequence, but adapt based on what the applicant shares:
    - Self-employed: Tax returns for 2 years, profit & loss statement
    - All: Bank statements from institutions where they hold assets
 
+7b. **Soft Credit Check** : After collecting borrower info, you MAY offer to run a soft credit check to help assess credit risk early. To do this:
+   - Call request_soft_credit_check_consent with the information you already have (or empty to ask the applicant)
+   - If additional info is needed (full name, DOB, SSN/last 4, current address), ask the applicant
+   - Once you have all info AND consent, call execute_soft_credit_check
+   - Share the credit score and tier with the applicant
+   - Note: Soft credit check does NOT hurt their credit score (no hard inquiry)
+
 8. **Assets**: Ask about financial assets (savings, investments, retirement accounts, etc.).
    → Call add_asset for each asset.
 

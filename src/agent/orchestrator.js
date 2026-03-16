@@ -139,6 +139,10 @@ export class AgentOrchestrator {
         return await this._explainIneligibility();
       case 'get_application_summary':
         return await this._getApplicationSummary();
+      case 'request_soft_credit_check_consent':
+        return await this._requestSoftCreditCheckConsent(args);
+      case 'execute_soft_credit_check':
+        return await this._executeSoftCreditCheck(args);
       default:
         return { error: `Unknown tool: ${name}` };
     }
@@ -454,6 +458,122 @@ export class AgentOrchestrator {
     this._updatePhase('summary');
     this._notifyStateChange();
     return appData;
+  }
+
+  async _requestSoftCreditCheckConsent(args) {
+    // This tool is used by the agent to request consent and gather required info
+    // Return a structured response indicating what info is still needed
+    const { fullName, dateOfBirth, ssn, currentAddress, consentGiven } = args;
+    
+    const missingInfo = [];
+    if (!fullName) missingInfo.push('full name');
+    if (!dateOfBirth) missingInfo.push('date of birth');
+    if (!ssn) missingInfo.push('SSN or last 4 digits');
+    if (!currentAddress) missingInfo.push('current address');
+    
+    if (missingInfo.length > 0) {
+      return {
+        status: 'incomplete',
+        message: `Please provide the following information: ${missingInfo.join(', ')}.`,
+        missingFields: missingInfo,
+        readyToCheck: false,
+      };
+    }
+    
+    if (!consentGiven) {
+      return {
+        status: 'pending_consent',
+        message: 'I have all the information needed. Do you consent to proceed with the soft credit check?',
+        fullName,
+        dateOfBirth,
+        ssn,
+        currentAddress,
+        readyToCheck: false,
+      };
+    }
+    
+    // Consent given and info complete - mark ConsentReceived in doc requirement
+    const appData = await intentyfi.getObject(this.state.applicationRef, true);
+    const requirements = Array.isArray(appData.Requirements) ? appData.Requirements : [];
+    const resolvedRequirements = await Promise.all(
+      requirements.map(async (req) => {
+        if (typeof req === 'string') {
+          try {
+            return await intentyfi.getObject(req, false);
+          } catch (err) {
+            return null;
+          }
+        }
+        return req;
+      })
+    );
+    
+    const softCreditReqs = resolvedRequirements.filter((req) => req && this._normalizeEnumValue(req.ReqCode) === 'SOFT_CREDIT_CHECK');
+    if (softCreditReqs.length > 0) {
+      for (const req of softCreditReqs) {
+        const objectId = this._extractObjectId(req);
+        if (objectId) {
+          await intentyfi.updateObjects(this.state.scopeId, [{
+            ObjectType: 'DocRequirement@mti.intentyfi.co',
+            ObjectID: objectId,
+            ConsentReceived: true,
+          }]);
+        }
+      }
+    }
+    
+    return {
+      status: 'consent_given',
+      message: 'Thank you for providing your information. Running soft credit check now...',
+      fullName,
+      dateOfBirth,
+      ssn,
+      currentAddress,
+      readyToCheck: true,
+    };
+  }
+
+  async _executeSoftCreditCheck(args) {
+    const { fullName, dateOfBirth, ssn, currentAddress } = args;
+    
+    if (!fullName || !dateOfBirth || !ssn || !currentAddress) {
+      return {
+        error: 'Missing required information for soft credit check',
+        required: ['fullName', 'dateOfBirth', 'ssn', 'currentAddress'],
+      };
+    }
+
+    try {
+      // Call the soft credit check API
+      const creditCheckResult = await intentyfi.executeSoftCreditCheck({
+        full_name: fullName,
+        date_of_birth: dateOfBirth,
+        ssn,
+        current_address: currentAddress,
+      });
+
+      // Mark the SOFT_CREDIT_CHECK requirement as VERIFIED on success
+      await this._updateDocRequirement({ reqCode: 'SOFT_CREDIT_CHECK', status: 'VERIFIED' });
+
+      return {
+        success: true,
+        creditScore: creditCheckResult.credit_score,
+        creditTier: creditCheckResult.credit_tier,
+        fullDetails: creditCheckResult,
+        message: `Soft credit check complete! Your credit score is ${creditCheckResult.credit_score} (${creditCheckResult.credit_tier}).`,
+      };
+    } catch (err) {
+      console.error('Soft credit check execution error:', err);
+      
+      // Mark the SOFT_CREDIT_CHECK requirement as INVALID on failure
+      await this._updateDocRequirement({ reqCode: 'SOFT_CREDIT_CHECK', status: 'INVALID' });
+      
+      return {
+        success: false,
+        error: err.message,
+        message: 'The soft credit check could not be completed. Please try again later.',
+      };
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

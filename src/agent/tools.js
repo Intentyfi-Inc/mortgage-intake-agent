@@ -179,4 +179,32 @@ export const toolDeclarations = [
       properties: {},
     },
   },
+  {
+    name: 'request_soft_credit_check_consent',
+    description: 'Request consent from the applicant to perform a soft credit check. Ask for required information: full name, date of birth, SSN (or last 4 digits), and current address. This must be called before execute_soft_credit_check.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fullName: { type: 'STRING', description: 'Applicants full name (optional if asking user).' },
+        dateOfBirth: { type: 'STRING', description: 'Date of birth in YYYY-MM-DD format (optional if asking user).' },
+        ssn: { type: 'STRING', description: 'SSN or last 4 digits (optional if asking user).' },
+        currentAddress: { type: 'STRING', description: 'Current residential address (optional if asking user).' },
+        consentGiven: { type: 'BOOLEAN', description: 'Has the applicant explicitly given consent to proceed with soft credit check?' },
+      },
+    },
+  },
+  {
+    name: 'execute_soft_credit_check',
+    description: 'Execute the soft credit check with the applicant information. Use this AFTER request_soft_credit_check_consent has been called and consent obtained. Returns credit score, credit tier, and other credit profile information.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fullName: { type: 'STRING', description: 'Applicants full name.' },
+        dateOfBirth: { type: 'STRING', description: 'Date of birth in YYYY-MM-DD format.' },
+        ssn: { type: 'STRING', description: 'SSN or last 4 digits.' },
+        currentAddress: { type: 'STRING', description: 'Current residential address.' },
+      },
+      required: ['fullName', 'dateOfBirth', 'ssn', 'currentAddress'],
+    },
+  },
 ];

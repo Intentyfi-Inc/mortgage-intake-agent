@@ -31,3 +31,24 @@ export async function explainPath(scopeId, variable) {
   if (!res.ok) throw new Error(`Failed to explain path: ${res.status}`);
   return res.json();
 }
+
+/**
+ * Call the soft credit check API endpoint
+ */
+export async function executeSoftCreditCheck(userData) {
+  try {
+    const res = await fetch('/api/credit/soft-credit-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Soft credit check failed: ${res.status} - ${errorText}`);
+    }
+    return res.json();
+  } catch (e) {
+    console.error('Soft credit check error:', e);
+    throw e;
+  }
+}

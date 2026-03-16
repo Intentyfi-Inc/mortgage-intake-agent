@@ -7,18 +7,19 @@
     "start": "cross-env NODE_ENV=production node server/server.js",
     "start:staging": "concurrently \"cross-env NODE_ENV=staging node server/server.js\" \"vite --mode staging\"",
     "dev": "concurrently \"cross-env NODE_ENV=local node server/server.js\" \"vite \"",
+    "dev:full": "concurrently \"cross-env NODE_ENV=local node server/server.js\" \"vite\" \"node ./helper/soft_credit_checker.js\"",
     "dev:client": "vite ",
     "dev:server": "cross-env NODE_ENV=local node server/server.js",
     "build": "vite build"
   },
   "dependencies": {
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "google-auth-library": "^10.6.1"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "vite": "^6.2.0"
   }
