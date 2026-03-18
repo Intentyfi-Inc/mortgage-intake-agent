@@ -439,6 +439,7 @@ export class DashboardUI {
       'DocumentRequirements',
       'Requirements',
       'RequiredDocuments',
+      'Requirement'
     ]);
 
     const reqs = toArray(raw).filter(item => item && typeof item === 'object');
@@ -488,14 +489,14 @@ export class DashboardUI {
         </thead>
         <tbody>
           ${requirements.map(req => {
-            const status = firstDefined(req, ['RequirementStatus', 'Status']) || 'Pending';
+            const status = firstDefined(req, ['RequirementStatus', 'ReqStatus', 'Status']) || 'Pending';
             const link = firstDefined(req, ['DocumentLink', 'DocumentationLink', 'Link']) || '#';
             return `
               <tr>
-                <td>${escapeHtml(firstDefined(req, ['RequirementCode', 'Code']) || '—')}</td>
-                <td>${escapeHtml(firstDefined(req, ['AssociatedEntity', 'Entity']) || '—')}</td>
+                <td>${escapeHtml(firstDefined(req, ['RequirementCode', 'ReqCode', 'Code', 'Requirement']) || '—')}</td>
+                <td>${escapeHtml(firstDefined(req, ['AssociatedEntity', 'AssociatedEntityName', 'EntityName', 'Entity']) || '—')}</td>
                 <td><span class="status-badge ${statusClass(status)}">${escapeHtml(status)}</span></td>
-                <td>${firstDefined(req, ['ConsentReceived']) ? 'Yes' : 'No'}</td>
+                <td>${firstDefined(req, ['ConsentReceived', 'Consent']) ? 'Yes' : 'No'}</td>
               </tr>
             `;
           }).join('')}

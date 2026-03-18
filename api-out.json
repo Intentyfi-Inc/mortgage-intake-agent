@@ -1,0 +1,82 @@
+{
+  "SelectedLoanProduct": "FIXED_CONFORMING_30YR",
+  "LoanType": "NEW",
+  "ObjectID": 10000041,
+  "TotalMonthlyObligation": 605.654,
+  "IsEligible": true,
+  "SubmissionDate": "Wed Mar 18 06:43:00 UTC 2026",
+  "Requirements": [
+    {
+      "ObjectType": "DocRequirement@mti.intentyfi.co",
+      "ExistentialInd": true,
+      "ObjectID": 10000055,
+      "ReqStatus": "PENDING",
+      "ObjectTypeID": 10000016,
+      "Borrower": 10000041,
+      "ConsentReceived": false,
+      "ReqCode": "W2_TWO_YEARS",
+      "Application": 10000041
+    },
+    {
+      "ObjectType": "DocRequirement@mti.intentyfi.co",
+      "ExistentialInd": true,
+      "ObjectID": 10000056,
+      "ReqStatus": "PENDING",
+      "ObjectTypeID": 10000016,
+      "Borrower": 10000041,
+      "ConsentReceived": false,
+      "ReqCode": "SOFT_CREDIT_CHECK",
+      "Application": 10000041
+    }
+  ],
+  "LTV": 0.8,
+  "LoanAmount": 80000,
+  "ObjectType": "MortgageApplication@mti.intentyfi.co",
+  "MonthlyPMIPayment": 0,
+  "TotalLiabilities": 0,
+  "PMIRequired": false,
+  "Liabilities": [],
+  "Assets": [],
+  "MonthlyRate": 0.00541667,
+  "Borrowers": [
+    {
+      "ObjectType": "Borrower@mti.intentyfi.co",
+      "Email": "michelle@spartan.example",
+      "Address": {
+        "ObjectType": "Address@mti.intentyfi.co",
+        "StreetAddress": "1034 Second Street",
+        "ObjectID": 10000041,
+        "ObjectTypeID": 10000011,
+        "State": "CA",
+        "Country": "USA",
+        "City": "York"
+      },
+      "ObjectID": 10000041,
+      "FirstName": "Michelle",
+      "ObjectTypeID": 10000010,
+      "EmploymentStatus": "W2",
+      "LastName": "Spartan",
+      "Application": 10000041,
+      "DataComplete": true,
+      "EmploymentInfo": {
+        "ObjectType": "EmploymentInfo@mti.intentyfi.co",
+        "YearlySalary": 100000,
+        "YearlyBonus": 10000,
+        "ObjectID": 10000038,
+        "ObjectTypeID": 10000012,
+        "Duration": 5,
+        "EmployerName": "Fisher Deals"
+      }
+    }
+  ],
+  "DownPayment": 20000,
+  "ApplicationID": "App0000024",
+  "NumberOfPayments": 360,
+  "MortgageRate": 6.5,
+  "MonthlyTI": 100,
+  "TotalMonthlyIncome": 0,
+  "PropertyValue": 100000,
+  "MonthlyMortgagePayment": 505.654,
+  "ObjectTypeID": 10000009,
+  "Urgency": "IMMEDIATE"
+}
